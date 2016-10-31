@@ -4,14 +4,13 @@ import unicodedata
 import shelve
 
 class CrossWikis():
-  def __init__(self, shelve_dict_file, widWikiTitle_fname):
+  def __init__(self, shelve_dict_file):
     self.shelve_dict_file = shelve_dict_file
-    self.widWikiTitle_fname = widWikiTitle_fname
 
   def load_widWikiTitle(self):
     print("[#] Making WikiTitle -> Wid map ... ")
     wikiTitle_WID = {}
-    f = open(self.widWikiTitle_fname, 'r')
+    f = open(widWikiTitle_fname, 'r')
     line = f.readline()
     while line != "":
       split = line.split("\t")
@@ -32,7 +31,7 @@ class CrossWikis():
     self.map.close()
 
 
-  def makeShelveMap(self, crosswikisfile):
+  def makeShelveMap(self, crosswikisfile, widWikiTitle_fname):
     self.wikiTitle_WID = self.load_widWikiTitle()
     print("[#] Making CrossWikis Shelve file")
     assert not os.path.exists(self.shelve_dict_file), "Dict already exists"
@@ -84,7 +83,11 @@ class CrossWikis():
 
   def getCandidates(self, arg):
     mention = self.getLnrm(arg)
-    print(self.map[mention])
+    if mention in self.map:
+      candidates = self.map[mention]
+    else:
+      candidates = ()
+    return candidates
 
 
 
@@ -106,13 +109,13 @@ class CrossWikis():
     return arg
 
 if __name__ == "__main__":
-  cwikis = CrossWikis(shelve_dict_file="/save/ngupta19/crosswikis/crosswikis.dict",
-                      widWikiTitle_fname="/save/ngupta19/freebase/types_pruned/wid.WikiTitle")
-  #cwikis.makeShelveMap(crosswikisfile="/save/ngupta19/crosswikis/data/lnrm.dict")
+  cwikis = CrossWikis(shelve_dict_file="/save/ngupta19/crosswikis/crosswikis.dict")
+  #cwikis.makeShelveMap(crosswikisfile="/save/ngupta19/crosswikis/data/lnrm.dict",
+  #                     widWikiTitle_fname="/save/ngupta19/freebase/types_pruned/wid.WikiTitle")
   cwikis.open_shelve(writeback=False)
 
-  cwikis.getCandidates("eddie vedder")
-
+  candidates = cwikis.getCandidates("Taiwan")
+  print(candidates[0:30])
   cwikis.close_shelve()
 
 
