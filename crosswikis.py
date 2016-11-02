@@ -1,5 +1,6 @@
 import os
 import sys
+import bz2
 import unicodedata
 import shelve
 
@@ -7,7 +8,7 @@ class CrossWikis():
   def __init__(self, shelve_dict_file):
     self.shelve_dict_file = shelve_dict_file
 
-  def load_widWikiTitle(self):
+  def load_widWikiTitle(self, widWikiTitle_fname):
     print("[#] Making WikiTitle -> Wid map ... ")
     wikiTitle_WID = {}
     f = open(widWikiTitle_fname, 'r')
@@ -30,27 +31,28 @@ class CrossWikis():
   def close_shelve(self):
     self.map.close()
 
-
-  def makeShelveMap(self, crosswikisfile, widWikiTitle_fname):
-    self.wikiTitle_WID = self.load_widWikiTitle()
+  def makeShelveMap(self, crosswikisfile, widWikiTitle_fname, cprob_cutoff=0.0):
+    self.wikiTitle_WID = self.load_widWikiTitle(widWikiTitle_fname)
     print("[#] Making CrossWikis Shelve file")
     assert not os.path.exists(self.shelve_dict_file), "Dict already exists"
     d = shelve.open(filename=self.shelve_dict_file, writeback=True)
-    f = open(crosswikisfile, 'r', encoding='utf-8')
+    f = bz2.open(crosswikisfile, 'rt', errors='ignore')
     line = f.readline()
     lines_written = 0
     mentions_written = 0
     titles_found = 0
     failed_lines = 0
-    leg_line = True
 
     while line != "":
       split = line.split("\t")
       if len(split) >= 2:
         mention = split[0].strip()
         cprob_title = split[1].strip().split(" ")
-        cprob = cprob_title[0].strip()
+        cprob = float(cprob_title[0].strip())
         title = cprob_title[1].strip()
+        if cprob <= cprob_cutoff:
+          line = f.readline()
+          continue
         if title in self.wikiTitle_WID:
           titles_found += 1
           if mention not in d:
@@ -58,20 +60,57 @@ class CrossWikis():
             d[mention] = []
           d[mention].append((self.wikiTitle_WID[title], cprob))
         lines_written += 1
-      leg_line = False
-      while not leg_line:
-        try:
-          line = f.readline()
-          leg_line = True
-        except UnicodeDecodeError:
-          failed_lines += 1
       if lines_written % 100000 == 0:
         d.sync()
         print(str(lines_written) + " ... ", end="", flush=True)
+      line = f.readline()
     #endwhile
     print("Number of mentions written : %d" % mentions_written)
     print("Number of titles written / value entries : %d" % titles_found)
     d.close()
+
+
+  # def makeShelveMap(self, crosswikisfile, widWikiTitle_fname):
+  #   self.wikiTitle_WID = self.load_widWikiTitle()
+  #   print("[#] Making CrossWikis Shelve file")
+  #   assert not os.path.exists(self.shelve_dict_file), "Dict already exists"
+  #   d = shelve.open(filename=self.shelve_dict_file, writeback=True)
+  #   f = open(crosswikisfile, 'r', encoding='utf-8')
+  #   line = f.readline()
+  #   lines_written = 0
+  #   mentions_written = 0
+  #   titles_found = 0
+  #   failed_lines = 0
+  #   leg_line = True
+
+  #   while line != "":
+  #     split = line.split("\t")
+  #     if len(split) >= 2:
+  #       mention = split[0].strip()
+  #       cprob_title = split[1].strip().split(" ")
+  #       cprob = cprob_title[0].strip()
+  #       title = cprob_title[1].strip()
+  #       if title in self.wikiTitle_WID:
+  #         titles_found += 1
+  #         if mention not in d:
+  #           mentions_written += 1
+  #           d[mention] = []
+  #         d[mention].append((self.wikiTitle_WID[title], cprob))
+  #       lines_written += 1
+  #     leg_line = False
+  #     while not leg_line:
+  #       try:
+  #         line = f.readline()
+  #         leg_line = True
+  #       except UnicodeDecodeError:
+  #         failed_lines += 1
+  #     if lines_written % 100000 == 0:
+  #       d.sync()
+  #       print(str(lines_written) + " ... ", end="", flush=True)
+  #   #endwhile
+  #   print("Number of mentions written : %d" % mentions_written)
+  #   print("Number of titles written / value entries : %d" % titles_found)
+  #   d.close()
 
   def print_shelve(self):
     d = shelve.open(filename=self.shelve_dict_file, writeback=False)
@@ -88,10 +127,6 @@ class CrossWikis():
     else:
       candidates = ()
     return candidates
-
-
-
-
 
   def getLnrm(self, arg):
     """Normalizes the given arg by stripping it of diacritics, lowercasing, and
@@ -110,12 +145,12 @@ class CrossWikis():
 
 if __name__ == "__main__":
   cwikis = CrossWikis(shelve_dict_file="/save/ngupta19/crosswikis/crosswikis.dict")
-  #cwikis.makeShelveMap(crosswikisfile="/save/ngupta19/crosswikis/data/lnrm.dict",
-  #                     widWikiTitle_fname="/save/ngupta19/freebase/types_pruned/wid.WikiTitle")
+  # cwikis.makeShelveMap(crosswikisfile="/save/ngupta19/crosswikis/lnrm.dict.bz2",
+  #                      widWikiTitle_fname="/save/ngupta19/freebase/types_pruned/wid.WikiTitle")
   cwikis.open_shelve(writeback=False)
 
-  candidates = cwikis.getCandidates("Taiwan")
-  print(candidates[0:30])
+  candidates = cwikis.getCandidates("bombay")
+  print(candidates)
   cwikis.close_shelve()
 
 
